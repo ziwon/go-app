@@ -1,19 +1,15 @@
 # step 1
-FROM golang:1.12.4-alpine3.9 as builder
-
+FROM --platform=$BUILDPLATFORM golang:1.17-alpine AS builder
+ENV GO111MODULE=auto
+ARG TARGETOS TARGETARCH
 RUN apk add --update --no-cache ca-certificates git
-
-RUN mkdir /app
 WORKDIR /app
-COPY go.mod .
-COPY go.sum .
-
-RUN go mod download
-COPY . .
-
-RUN CGO_ENABLED=0 go build -o /go/bin/go-app
+RUN --mount=target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg \
+    GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/app .
 
 # step 2
 FROM scratch
-COPY --from=builder /go/bin/go-app /go/bin/go-app
-ENTRYPOINT ["/go/bin/go-app"]
+COPY --from=builder /out/app /bin
+ENTRYPOINT ["app"]
